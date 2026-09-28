@@ -36,7 +36,7 @@
 源码定位是帮助使用者挑重点学习和应对追问的导航，不是证据清单。
 
 - 仅使用本次实际读取的非敏感源码相对路径和短行范围，格式为 `` `相对路径:起始行-结束行` ``。路径使用 `/`，不写绝对本机路径、敏感路径、缓存、依赖或构建目录。
-- 只为核心流程、关键模块、关键分支或值得深入学习的实现提供定位；每个关键章节通常 1 到 2 条，流程图学习导航通常 3 到 5 条。不得把所有文件罗列出来。
+- 只为核心流程、关键模块、关键分支或值得深入学习的实现提供定位；每个关键章节通常 1 到 2 条，流程图学习导航通常 3–8 条。不得把所有文件罗列出来。
 - `面试逐字稿.md` 的 60 秒和 3 分钟概述必须保持可直接朗读，不插入路径。关键章节可在口播正文之后另起一行，用 `> 源码定位（备查）：...` 标注。
 - `项目流程图.md` 在 Mermaid 图后使用“学习导航”列出核心节点或流程及其源码定位。节点标签保持中文且简洁，不把长路径塞进图中。
 - `简历素材.md` 和 `证据索引.md` 不写源码路径。四份文件均不写编号化证据、来源等级、扫描记录、映射表、审计式来源说明、HTML 隐藏注释或 Mermaid 隐藏审计注释。
@@ -127,28 +127,63 @@
 ~~~~markdown
 # 项目流程图：<项目/模块名>
 
-## 核心流程
+## 图谱模式与判定依据
+- 主模式：`modular-backend`、`agent-orchestration` 或 `single-flow`（三选一）。优先级为 Agent 编排，其次是多个稳定模块，最后是单链路。
+- 判定依据：<列出直接可见的源码、配置或工作流关系；目录名、类名和注释单独出现时不能作为依据。>
+- 未覆盖范围：<无法确认的模块边界、运行期行为或外部系统写“【未知】”。>
+
+## 总体图
 ~~~mermaid
 flowchart TD
-    defineOrderRoute["代码定义订单接口<br/>POST /orders"]
-    receiveCreateOrderPayload["处理函数接收 CreateOrder<br/>字段约束已声明"]
-    callBoundOrderService["调用绑定的订单服务"]
-    returnCreatedStatus["方法返回 created 状态"]
-    defineOrderRoute --> receiveCreateOrderPayload
-    receiveCreateOrderPayload --> callBoundOrderService
-    callBoundOrderService --> returnCreatedStatus
+    entry["代码入口或编排入口"]
+    moduleOrAgentA["高层模块或 Agent A"]
+    moduleOrAgentB["高层模块或 Agent B"]
+    toolLayer["有直接调用证据的工具层"]
+    entry --> moduleOrAgentA
+    moduleOrAgentA --> moduleOrAgentB
+    moduleOrAgentA --> toolLayer
 ~~~
 
+## 子图索引
+- <模块化项目列出高信号模块；Agent 项目列出参与编排、工具调用或 handoff 的高信号 Agent。>
+- <若主模式为 `single-flow`，写“无可靠子图，采用 single-flow”，不要强行拆分。>
+
+## 模块图：<模块名>
+~~~mermaid
+flowchart TD
+    moduleEntry["当前模块入口"]
+    moduleService["当前模块服务或用例"]
+    moduleData["当前模块 Repository/Client 或可见状态"]
+    moduleReturn["可见返回或事件"]
+    moduleEntry --> moduleService
+    moduleService --> moduleData
+    moduleData --> moduleReturn
+~~~
+
+## Agent 图：<Agent 名>
+~~~mermaid
+flowchart TD
+    agentInput["Agent 输入"]
+    agentDecision["可见决策或调用"]
+    agentTool["直接调用的工具"]
+    agentOutput["Agent 输出或 handoff"]
+    agentInput --> agentDecision
+    agentDecision --> agentTool
+    agentTool --> agentOutput
+~~~
+
+以上“模块图”和“Agent 图”是按主模式二选一的模板，不要求同一次运行同时生成。模板中的占位节点和边必须按实际项目替换；没有直接依据的工具层、跨模块边或 handoff 要删除；没有可见输出时保留节点并写“输出：【未知】”，不要把未知当作能力。跨边界调用可用一个“外部模块/Agent 边界”节点或出图边表达，不能复制对方内部节点。只有在源码、配置或工作流定义出现回边、循环条件、重试或递归，且循环体确实再次调用 Agent、工具或编排入口时，才添加“条件下再次调用”的回边，不能表述为循环已实际发生。`single-flow` 仍保留本节的模式依据、总体图和子图索引，但只生成一张 Mermaid 图。总体图目标为 3–8 个节点，单张子图目标为 3–10 个节点；超出时合并低信号节点或拆分，并在模式依据中说明。每个节点和边必须在生成期间的临时事实清单中有直接支持，图中不放隐藏审计信息。
+
 ## 学习导航
-- 接口定义与参数接收：`<相对路径>:<起始行>-<结束行>`
-- 请求模型与字段约束：`<相对路径>:<起始行>-<结束行>`
-- 业务处理与可见返回：`<相对路径>:<起始行>-<结束行>`
+- <总体图或子图中的关键入口>：`<相对路径>:<起始行>-<结束行>`
+- <高信号模块、Agent 或工具调用>：`<相对路径>:<起始行>-<结束行>`
+- <关键分支、跨边界调用或返回>：`<相对路径>:<起始行>-<结束行>`
 
 ## 边界说明（仅在需要时）
-<只简短说明明确标记的运行期未知项，不叙述扫描过程。>
+<只简短说明明确标记的运行期未知项或无法可靠划分的边界，不叙述扫描过程。>
 ~~~~
 
-使用 fenced Mermaid 代码块。核心 flowchart 必须直接表达最小可验证链路，节点和边的主体、方向、条件与源码控制流一致。静态扫描只能说明代码中定义、注册或调用的关系，不能写成请求已实际到达 handler 或运行已成功。若图写顶层初始化顺序，必须按实际代码顺序排列；跨模块的注册或关联不能被硬画成虚假的先后调用关系。图内不使用隐藏审计注释；核心节点的源码定位统一放在图后的“学习导航”中，便于使用者循着流程阅读代码。
+使用 fenced Mermaid 代码块。总体图和每张子图都必须表达最小可验证链路；`single-flow` 仅保留总体图。传统模块总体图只使用抽象入口、包/模块/边界角色，不出现具体 Controller、Service、Repository、DTO、方法名或返回对象；这些类级细节放入对应模块图。节点和边的主体、方向、条件与源码控制流一致。静态扫描只能说明定义、注册或调用关系，不能写成请求已实际到达 handler、调用成功或外部系统已响应。若图写顶层初始化顺序，必须按实际代码顺序排列；跨模块的注册或关联不能被硬画成虚假的先后调用关系。节点和边必须由临时事实清单支持，图中不放隐藏审计信息；图后只为关键节点或流程提供少量“学习导航”源码定位，不要求逐节点罗列路径。
 
 ## career-kit/证据索引.md
 
@@ -206,7 +241,7 @@ flowchart TD
 
 # 项目流程图：多智能体协作练习服务
 
-## 核心流程
+## 单链路示例
 ~~~mermaid
 flowchart TD
     createTaskRouter["代码创建 /tasks router"]
